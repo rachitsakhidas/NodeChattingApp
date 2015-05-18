@@ -1,0 +1,108 @@
+<html>
+<head>
+	<title>Chat with socket.io and node.js</title>
+	<style>
+		#chat{
+			height:500px;
+		}
+	</style>
+</head>
+<body>
+	<div id="chat"></div>
+	<form id="send-message">
+		<input size="35" id="message"></input>
+		<input type="submit"></input>
+	</form>
+	
+	<script src="http://code.jquery.com/jquery-latest.min.js"></script>
+	<script src="/socket.io/socket.io.js"></script>
+	<script>
+		jQuery(function($){
+			var socket = io.connect();
+			//var socket = io.connect('http://localhost:3000/');
+			var $messageForm = $('#send-message');
+			var $messageBox = $('#message');
+			var $chat = $('#chat');
+			var clientUserName = null;
+			var timer="";
+			
+			$messageForm.submit(function(e){
+				e.preventDefault();
+				socket.emit('sendmessage', {'messageVal': $messageBox.val(), 'typeUserName': clientUserName});
+				$messageBox.val('');
+			});
+
+
+			function onBlur() {
+				document.body.className = "blurred";
+			};
+			function onFocus(){
+				clearInterval(timer);
+				document.body.className = "focused";
+				document.title = "Chat with socket.io and node.js";
+			};
+
+			if (/*@cc_on!@*/false) { // check for Internet Explorer
+				document.onfocusin = onFocus;
+				document.onfocusout = onBlur;
+			} else {
+				window.onfocus = onFocus;
+				window.onblur = onBlur;
+			}
+
+			socket.on('connect', function(data){
+				clientUserName = prompt('What is your nickname?');
+				socket.emit('join', clientUserName, function(data){
+					if(!data){
+						$chat.append('That username is already taken!  Try again.');
+					}
+				});
+			}).on('new message', function(data){
+				$chat.append(data.newMsg + "<br/>");
+			}).on('send new message', function(data){
+				var resData = data.username + ": " + data.messageVal;
+				$chat.append(resData + "<br/>");
+				manageTypingLabel(data);
+				$messageBox.removeData('isTyping');
+			}).on('typing', function(data){
+				manageTypingLabel(data);
+			}).on('disconnected', function(data){
+				$chat.append(data + ": left room <br/>");
+			});
+
+
+			$messageBox.bind('keypress', function(){
+				if(!$messageBox.data('isTyping')){
+					$messageBox.data('isTyping', true);
+					socket.emit('is typing', clientUserName);	
+				}
+			});
+
+			function manageTypingLabel(data){
+				var userNameListIndex = null,
+					typingUser = "";
+				$(".username").remove();
+				for (var i = 0; i <= data.usernameList.length - 1; i++) {
+					userNameListIndex = data.usernameList[i];
+					if(userNameListIndex.isType){
+						if(i === data.usernameList.length - 1){
+							typingUser += userNameListIndex.name + " is typing...";
+						}else{
+							typingUser += userNameListIndex.name + ", ";
+						}
+						$chat.after('<div class="username" data-username='+userNameListIndex.name+'>' + userNameListIndex.name + ': is typing...</div>');		
+					}
+				}
+
+				if($("body").hasClass('blurred')){
+					timer = window.setInterval(function() {
+  						//document.title = typingUser;
+  						window.focus();
+  						document.title = document.title == "Chat with socket.io and node.js" ? typingUser : "Chat with socket.io and node.js";
+					}, 500);
+				}
+			}
+		});
+	</script>
+</body>
+</html>
