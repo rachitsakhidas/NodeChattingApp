@@ -13,6 +13,7 @@ app.get('/', function(req, res){
 
 io.sockets.on('connection', function(socket){
 	var username = null;
+	console.log('testing');
 	socket.on('join', function(name, callback){
 		if(usernameList.indexOf(name) !== -1){
 			callback(false);
